@@ -50,8 +50,8 @@ const Cart: React.FC<CartProps> = ({
   }
 
   const totalPrice = getTotalPrice();
-  const shippingCost = totalPrice >= 5000 ? 0 : 150; // Free shipping over ₱5,000
-  const finalTotal = totalPrice + shippingCost;
+  // Shipping fee will be discussed via chat
+  const finalTotal = totalPrice;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-6 md:py-8">
@@ -184,15 +184,9 @@ const Cart: React.FC<CartProps> = ({
                   <span>Subtotal ({cartItems.reduce((sum, item) => sum + item.quantity, 0)} items)</span>
                   <span className="font-semibold">₱{totalPrice.toLocaleString('en-PH', { minimumFractionDigits: 0 })}</span>
                 </div>
-                <div className="flex justify-between text-gray-700 text-sm md:text-base">
+                <div className="flex justify-between text-gray-700 text-xs md:text-sm italic">
                   <span>Shipping</span>
-                  <span className="font-semibold">
-                    {shippingCost === 0 ? (
-                      <span className="text-green-600">FREE ✨</span>
-                    ) : (
-                      `₱${shippingCost.toLocaleString('en-PH', { minimumFractionDigits: 0 })}`
-                    )}
-                  </span>
+                  <span className="text-blue-600 font-medium">To be discussed</span>
                 </div>
 
                 <div className="border-t-2 border-dashed border-gray-200 pt-3 mt-4">
@@ -202,6 +196,7 @@ const Cart: React.FC<CartProps> = ({
                       ₱{finalTotal.toLocaleString('en-PH', { minimumFractionDigits: 0 })}
                     </span>
                   </div>
+                  <p className="text-xs text-gray-500 mt-1 text-right italic">+ Shipping fee (to be discussed)</p>
                 </div>
               </div>
 
