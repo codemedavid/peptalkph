@@ -41,20 +41,27 @@ export type Database = {
           updated_at?: string;
         };
       };
-      menu_items: {
+      products: {
         Row: {
           id: string;
           name: string;
           description: string;
-          base_price: number;
           category: string;
-          popular: boolean;
-          available: boolean;
-          image_url: string | null;
+          base_price: number;
           discount_price: number | null;
           discount_start_date: string | null;
           discount_end_date: string | null;
           discount_active: boolean;
+          purity_percentage: number;
+          molecular_weight: string | null;
+          cas_number: string | null;
+          sequence: string | null;
+          storage_conditions: string;
+          stock_quantity: number;
+          available: boolean;
+          featured: boolean;
+          image_url: string | null;
+          safety_sheet_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -62,15 +69,22 @@ export type Database = {
           id?: string;
           name: string;
           description: string;
-          base_price: number;
           category: string;
-          popular?: boolean;
-          available?: boolean;
-          image_url?: string | null;
+          base_price: number;
           discount_price?: number | null;
           discount_start_date?: string | null;
           discount_end_date?: string | null;
           discount_active?: boolean;
+          purity_percentage?: number;
+          molecular_weight?: string | null;
+          cas_number?: string | null;
+          sequence?: string | null;
+          storage_conditions?: string;
+          stock_quantity?: number;
+          available?: boolean;
+          featured?: boolean;
+          image_url?: string | null;
+          safety_sheet_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -78,65 +92,52 @@ export type Database = {
           id?: string;
           name?: string;
           description?: string;
-          base_price?: number;
           category?: string;
-          popular?: boolean;
-          available?: boolean;
-          image_url?: string | null;
+          base_price?: number;
           discount_price?: number | null;
           discount_start_date?: string | null;
           discount_end_date?: string | null;
           discount_active?: boolean;
+          purity_percentage?: number;
+          molecular_weight?: string | null;
+          cas_number?: string | null;
+          sequence?: string | null;
+          storage_conditions?: string;
+          stock_quantity?: number;
+          available?: boolean;
+          featured?: boolean;
+          image_url?: string | null;
+          safety_sheet_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
       };
-      variations: {
+      product_variations: {
         Row: {
           id: string;
-          menu_item_id: string;
+          product_id: string;
           name: string;
+          quantity_mg: number;
           price: number;
+          stock_quantity: number;
           created_at: string;
         };
         Insert: {
           id?: string;
-          menu_item_id: string;
+          product_id: string;
           name: string;
+          quantity_mg: number;
           price: number;
+          stock_quantity?: number;
           created_at?: string;
         };
         Update: {
           id?: string;
-          menu_item_id?: string;
+          product_id?: string;
           name?: string;
+          quantity_mg?: number;
           price?: number;
-          created_at?: string;
-        };
-      };
-      add_ons: {
-        Row: {
-          id: string;
-          menu_item_id: string;
-          name: string;
-          price: number;
-          category: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          menu_item_id: string;
-          name: string;
-          price: number;
-          category: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          menu_item_id?: string;
-          name?: string;
-          price?: number;
-          category?: string;
+          stock_quantity?: number;
           created_at?: string;
         };
       };

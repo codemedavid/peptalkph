@@ -12,13 +12,20 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ itemCount, onCa
   return (
     <button
       onClick={onCartClick}
-      className="fixed bottom-6 right-6 bg-red-600 text-white p-4 rounded-full shadow-lg hover:bg-red-700 transition-all duration-200 transform hover:scale-110 z-40 md:hidden"
+      className="fixed bottom-4 right-4 md:bottom-6 md:right-6 lg:bottom-8 lg:right-8 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 z-50 p-3 md:p-4 group"
+      aria-label="View cart"
     >
       <div className="relative">
-        <ShoppingCart className="h-6 w-6" />
-        <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+        <ShoppingCart className="w-5 h-5 md:w-6 md:h-6 lg:w-7 lg:h-7" />
+        <span className="absolute -top-2 -right-2 md:-top-3 md:-right-3 bg-red-500 text-white text-[10px] md:text-xs font-bold rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center animate-pulse">
           {itemCount}
         </span>
+      </div>
+      <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap hidden md:block">
+        <div className="bg-gray-900 text-white text-xs md:text-sm px-2 md:px-3 py-1.5 md:py-2 rounded-lg shadow-lg">
+          {itemCount} item{itemCount !== 1 ? 's' : ''} in cart
+          <div className="absolute bottom-0 right-4 transform translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900"></div>
+        </div>
       </div>
     </button>
   );

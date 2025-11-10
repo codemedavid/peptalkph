@@ -1,106 +1,89 @@
-import { useState, useCallback } from 'react';
-import { CartItem, MenuItem, Variation, AddOn } from '../types';
+import { useState, useEffect } from 'react';
+import type { CartItem, Product, ProductVariation } from '../types';
 
-export const useCart = () => {
+export function useCart() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
 
-  const calculateItemPrice = (item: MenuItem, variation?: Variation, addOns?: AddOn[]) => {
-    let price = item.basePrice;
-    if (variation) {
-      price += variation.price;
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const savedCart = localStorage.getItem('peptide_cart');
+    if (savedCart) {
+      try {
+        setCartItems(JSON.parse(savedCart));
+      } catch (error) {
+        console.error('Error loading cart from localStorage:', error);
+      }
     }
-    if (addOns) {
-      addOns.forEach(addOn => {
-        price += addOn.price;
-      });
+  }, []);
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('peptide_cart', JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  const addToCart = (product: Product, variation?: ProductVariation, quantity: number = 1) => {
+    const price = variation ? variation.price : (product.discount_active && product.discount_price ? product.discount_price : product.base_price);
+    
+    const existingItemIndex = cartItems.findIndex(
+      item => item.product.id === product.id && 
+              (variation ? item.variation?.id === variation.id : !item.variation)
+    );
+
+    if (existingItemIndex > -1) {
+      // Update existing item
+      const updatedItems = [...cartItems];
+      updatedItems[existingItemIndex].quantity += quantity;
+      setCartItems(updatedItems);
+    } else {
+      // Add new item
+      const newItem: CartItem = {
+        product,
+        variation,
+        quantity,
+        price
+      };
+      setCartItems([...cartItems, newItem]);
     }
-    return price;
   };
 
-  const addToCart = useCallback((item: MenuItem, quantity: number = 1, variation?: Variation, addOns?: AddOn[]) => {
-    const totalPrice = calculateItemPrice(item, variation, addOns);
-    
-    // Group add-ons by name and sum their quantities
-    const groupedAddOns = addOns?.reduce((groups, addOn) => {
-      const existing = groups.find(g => g.id === addOn.id);
-      if (existing) {
-        existing.quantity = (existing.quantity || 1) + 1;
-      } else {
-        groups.push({ ...addOn, quantity: 1 });
-      }
-      return groups;
-    }, [] as (AddOn & { quantity: number })[]);
-    
-    setCartItems(prev => {
-      const existingItem = prev.find(cartItem => 
-        cartItem.id === item.id && 
-        cartItem.selectedVariation?.id === variation?.id &&
-        JSON.stringify(cartItem.selectedAddOns?.map(a => `${a.id}-${a.quantity || 1}`).sort()) === JSON.stringify(groupedAddOns?.map(a => `${a.id}-${a.quantity}`).sort())
-      );
-      
-      if (existingItem) {
-        return prev.map(cartItem =>
-          cartItem === existingItem
-            ? { ...cartItem, quantity: cartItem.quantity + quantity }
-            : cartItem
-        );
-      } else {
-        const uniqueId = `${item.id}-${variation?.id || 'default'}-${addOns?.map(a => a.id).join(',') || 'none'}`;
-        return [...prev, { 
-          ...item,
-          id: uniqueId,
-          quantity,
-          selectedVariation: variation,
-          selectedAddOns: groupedAddOns || [],
-          totalPrice
-        }];
-      }
-    });
-  }, []);
-
-  const updateQuantity = useCallback((id: string, quantity: number) => {
+  const updateQuantity = (index: number, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(id);
+      removeFromCart(index);
       return;
     }
-    
-    setCartItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, quantity } : item
-      )
-    );
-  }, []);
 
-  const removeFromCart = useCallback((id: string) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
-  }, []);
+    const updatedItems = [...cartItems];
+    updatedItems[index].quantity = quantity;
+    setCartItems(updatedItems);
+  };
 
-  const clearCart = useCallback(() => {
+  const removeFromCart = (index: number) => {
+    const updatedItems = cartItems.filter((_, i) => i !== index);
+    setCartItems(updatedItems);
+  };
+
+  const clearCart = () => {
     setCartItems([]);
-  }, []);
+    localStorage.removeItem('peptide_cart');
+  };
 
-  const getTotalPrice = useCallback(() => {
-    return cartItems.reduce((total, item) => total + (item.totalPrice * item.quantity), 0);
-  }, [cartItems]);
+  const getTotalPrice = () => {
+    return cartItems.reduce((total, item) => {
+      return total + (item.price * item.quantity);
+    }, 0);
+  };
 
-  const getTotalItems = useCallback(() => {
+  const getTotalItems = () => {
     return cartItems.reduce((total, item) => total + item.quantity, 0);
-  }, [cartItems]);
-
-  const openCart = useCallback(() => setIsCartOpen(true), []);
-  const closeCart = useCallback(() => setIsCartOpen(false), []);
+  };
 
   return {
     cartItems,
-    isCartOpen,
     addToCart,
     updateQuantity,
     removeFromCart,
     clearCart,
     getTotalPrice,
-    getTotalItems,
-    openCart,
-    closeCart
+    getTotalItems
   };
-};
+}

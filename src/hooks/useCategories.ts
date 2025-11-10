@@ -85,17 +85,17 @@ export const useCategories = () => {
 
   const deleteCategory = async (id: string) => {
     try {
-      // Check if category has menu items
-      const { data: menuItems, error: checkError } = await supabase
-        .from('menu_items')
+      // Check if category has products
+      const { data: products, error: checkError } = await supabase
+        .from('products')
         .select('id')
         .eq('category', id)
         .limit(1);
 
       if (checkError) throw checkError;
 
-      if (menuItems && menuItems.length > 0) {
-        throw new Error('Cannot delete category that contains menu items. Please move or delete the items first.');
+      if (products && products.length > 0) {
+        throw new Error('Cannot delete category that contains products. Please move or delete the products first.');
       }
 
       const { error: deleteError } = await supabase

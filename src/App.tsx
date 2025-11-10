@@ -3,10 +3,12 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useCart } from './hooks/useCart';
 import Header from './components/Header';
 import SubNav from './components/SubNav';
+import MobileNav from './components/MobileNav';
 import Menu from './components/Menu';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import FloatingCartButton from './components/FloatingCartButton';
+import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import { useMenu } from './hooks/useMenu';
 
@@ -18,60 +20,73 @@ function MainApp() {
 
   const handleViewChange = (view: 'menu' | 'cart' | 'checkout') => {
     setCurrentView(view);
+    // Scroll to top when changing views
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCategoryClick = (categoryId: string) => {
     setSelectedCategory(categoryId);
   };
 
-  // Filter menu items based on selected category
-  const filteredMenuItems = selectedCategory === 'all' 
+  // Filter products based on selected category
+  const filteredProducts = selectedCategory === 'all' 
     ? menuItems 
     : menuItems.filter(item => item.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-cream-50 font-inter">
+    <div className="min-h-screen bg-gray-50 font-inter flex flex-col">
       <Header 
         cartItemsCount={cart.getTotalItems()}
         onCartClick={() => handleViewChange('cart')}
         onMenuClick={() => handleViewChange('menu')}
       />
-      <SubNav selectedCategory={selectedCategory} onCategoryClick={handleCategoryClick} />
       
       {currentView === 'menu' && (
-        <Menu 
-          menuItems={filteredMenuItems}
-          addToCart={cart.addToCart}
-          cartItems={cart.cartItems}
-          updateQuantity={cart.updateQuantity}
-        />
+        <>
+          <SubNav selectedCategory={selectedCategory} onCategoryClick={handleCategoryClick} />
+          <MobileNav activeCategory={selectedCategory} onCategoryClick={handleCategoryClick} />
+        </>
       )}
       
-      {currentView === 'cart' && (
-        <Cart 
-          cartItems={cart.cartItems}
-          updateQuantity={cart.updateQuantity}
-          removeFromCart={cart.removeFromCart}
-          clearCart={cart.clearCart}
-          getTotalPrice={cart.getTotalPrice}
-          onContinueShopping={() => handleViewChange('menu')}
-          onCheckout={() => handleViewChange('checkout')}
-        />
-      )}
-      
-      {currentView === 'checkout' && (
-        <Checkout 
-          cartItems={cart.cartItems}
-          totalPrice={cart.getTotalPrice()}
-          onBack={() => handleViewChange('cart')}
-        />
-      )}
+      <main className="flex-grow">
+        {currentView === 'menu' && (
+          <Menu 
+            menuItems={filteredProducts}
+            addToCart={cart.addToCart}
+            cartItems={cart.cartItems}
+            updateQuantity={cart.updateQuantity}
+          />
+        )}
+        
+        {currentView === 'cart' && (
+          <Cart 
+            cartItems={cart.cartItems}
+            updateQuantity={cart.updateQuantity}
+            removeFromCart={cart.removeFromCart}
+            clearCart={cart.clearCart}
+            getTotalPrice={cart.getTotalPrice}
+            onContinueShopping={() => handleViewChange('menu')}
+            onCheckout={() => handleViewChange('checkout')}
+          />
+        )}
+        
+        {currentView === 'checkout' && (
+          <Checkout 
+            cartItems={cart.cartItems}
+            totalPrice={cart.getTotalPrice()}
+            onBack={() => handleViewChange('cart')}
+          />
+        )}
+      </main>
       
       {currentView === 'menu' && (
-        <FloatingCartButton 
-          itemCount={cart.getTotalItems()}
-          onCartClick={() => handleViewChange('cart')}
-        />
+        <>
+          <FloatingCartButton 
+            itemCount={cart.getTotalItems()}
+            onCartClick={() => handleViewChange('cart')}
+          />
+          <Footer />
+        </>
       )}
     </div>
   );

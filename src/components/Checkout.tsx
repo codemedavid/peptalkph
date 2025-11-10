@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Clock } from 'lucide-react';
-import { CartItem, PaymentMethod, ServiceType } from '../types';
+import { ArrowLeft, ShieldCheck, Package, CreditCard, Sparkles, Heart } from 'lucide-react';
+import type { CartItem } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 
 interface CheckoutProps {
@@ -11,341 +11,419 @@ interface CheckoutProps {
 
 const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) => {
   const { paymentMethods } = usePaymentMethods();
-  const [step, setStep] = useState<'details' | 'payment'>('details');
-  const [customerName, setCustomerName] = useState('');
-  const [contactNumber, setContactNumber] = useState('');
-  const [serviceType, setServiceType] = useState<ServiceType>('dine-in');
+  const [step, setStep] = useState<'details' | 'payment' | 'confirmation'>('details');
+  
+  // Customer Details
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  
+  // Shipping Details
   const [address, setAddress] = useState('');
-  const [landmark, setLandmark] = useState('');
-  const [pickupTime, setPickupTime] = useState('5-10');
-  const [customTime, setCustomTime] = useState('');
-  // Dine-in specific state
-  const [partySize, setPartySize] = useState(1);
-  const [dineInTime, setDineInTime] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
-  const [referenceNumber, setReferenceNumber] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [zipCode, setZipCode] = useState('');
+  const [country, setCountry] = useState('');
+  
+  // Payment
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [notes, setNotes] = useState('');
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step]);
 
-  // Set default payment method when payment methods are loaded
   React.useEffect(() => {
-    if (paymentMethods.length > 0 && !paymentMethod) {
-      setPaymentMethod(paymentMethods[0].id as PaymentMethod);
+    if (paymentMethods.length > 0 && !selectedPaymentMethod) {
+      setSelectedPaymentMethod(paymentMethods[0].id);
     }
-  }, [paymentMethods, paymentMethod]);
+  }, [paymentMethods, selectedPaymentMethod]);
 
-  const selectedPaymentMethod = paymentMethods.find(method => method.id === paymentMethod);
+  const shippingCost = totalPrice >= 5000 ? 0 : 150; // Free shipping over ₱5,000
+  const finalTotal = totalPrice + shippingCost;
+
+  const isDetailsValid = 
+    fullName.trim() !== '' &&
+    email.trim() !== '' &&
+    phone.trim() !== '' &&
+    address.trim() !== '' &&
+    city.trim() !== '' &&
+    state.trim() !== '' &&
+    zipCode.trim() !== '' &&
+    country.trim() !== '';
 
   const handleProceedToPayment = () => {
-    setStep('payment');
+    if (isDetailsValid) {
+      setStep('payment');
+    }
   };
 
   const handlePlaceOrder = () => {
-    const timeInfo = serviceType === 'pickup' 
-      ? (pickupTime === 'custom' ? customTime : `${pickupTime} minutes`)
-      : '';
+    const paymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethod);
     
-    const dineInInfo = serviceType === 'dine-in' 
-      ? `👥 Party Size: ${partySize} person${partySize !== 1 ? 's' : ''}\n🕐 Preferred Time: ${new Date(dineInTime).toLocaleString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric', 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })}`
-      : '';
+    // Get current date and time
+    const now = new Date();
+    const dateTimeStamp = now.toLocaleString('en-PH', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
     
     const orderDetails = `
-🛒 ClickEats ORDER
+🧪 MY PEPTIDE JOURNEY - NEW ORDER
 
-👤 Customer: ${customerName}
-📞 Contact: ${contactNumber}
-📍 Service: ${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}
-${serviceType === 'delivery' ? `🏠 Address: ${address}${landmark ? `\n🗺️ Landmark: ${landmark}` : ''}` : ''}
-${serviceType === 'pickup' ? `⏰ Pickup Time: ${timeInfo}` : ''}
-${serviceType === 'dine-in' ? dineInInfo : ''}
+📅 ORDER DATE & TIME
+${dateTimeStamp}
 
+👤 CUSTOMER INFORMATION
+Name: ${fullName}
+Email: ${email}
+Phone: ${phone}
 
-📋 ORDER DETAILS:
+📦 SHIPPING ADDRESS
+${address}
+${city}, ${state} ${zipCode}
+${country}
+
+🛒 ORDER DETAILS
 ${cartItems.map(item => {
-  let itemDetails = `• ${item.name}`;
-  if (item.selectedVariation) {
-    itemDetails += ` (${item.selectedVariation.name})`;
+  let line = `• ${item.product.name}`;
+  if (item.variation) {
+    line += ` (${item.variation.name})`;
   }
-  if (item.selectedAddOns && item.selectedAddOns.length > 0) {
-    itemDetails += ` + ${item.selectedAddOns.map(addOn => 
-      addOn.quantity && addOn.quantity > 1 
-        ? `${addOn.name} x${addOn.quantity}`
-        : addOn.name
-    ).join(', ')}`;
+  line += ` x${item.quantity} - ₱${(item.price * item.quantity).toLocaleString('en-PH', { minimumFractionDigits: 0 })}`;
+  line += `\n  Purity: ${item.product.purity_percentage}%`;
+  if (item.product.cas_number) {
+    line += ` | CAS: ${item.product.cas_number}`;
   }
-  itemDetails += ` x${item.quantity} - ₱${item.totalPrice * item.quantity}`;
-  return itemDetails;
-}).join('\n')}
+  return line;
+}).join('\n\n')}
 
-💰 TOTAL: ₱${totalPrice}
-${serviceType === 'delivery' ? `🛵 DELIVERY FEE:` : ''}
+💰 PRICING
+Subtotal: ₱${totalPrice.toLocaleString('en-PH', { minimumFractionDigits: 0 })}
+Shipping: ${shippingCost === 0 ? 'FREE' : `₱${shippingCost.toLocaleString('en-PH', { minimumFractionDigits: 0 })}`}
+TOTAL: ₱${finalTotal.toLocaleString('en-PH', { minimumFractionDigits: 0 })}
 
-💳 Payment: ${selectedPaymentMethod?.name || paymentMethod}
-📸 Payment Screenshot: Please attach your payment receipt screenshot
+💳 PAYMENT METHOD
+${paymentMethod?.name || 'N/A'}
+${paymentMethod ? `Account: ${paymentMethod.account_number}` : ''}
 
-${notes ? `📝 Notes: ${notes}` : ''}
+${notes ? `📝 NOTES\n${notes}\n` : ''}
+⚠️ RESEARCH USE ONLY
 
-Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
+Please confirm this order. Thank you!
     `.trim();
 
+    // Send order to WhatsApp
+    const whatsappNumber = '639058429200';
     const encodedMessage = encodeURIComponent(orderDetails);
-    const messengerUrl = `https://m.me/61579693577478?text=${encodedMessage}`;
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
     
-    window.open(messengerUrl, '_blank');
+    // Open WhatsApp
+    window.open(whatsappUrl, '_blank');
     
+    // Show confirmation
+    setStep('confirmation');
   };
 
-  const isDetailsValid = customerName && contactNumber && 
-    (serviceType !== 'delivery' || address) && 
-    (serviceType !== 'pickup' || (pickupTime !== 'custom' || customTime)) &&
-    (serviceType !== 'dine-in' || (partySize > 0 && dineInTime));
+  if (step === 'confirmation') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center px-4 py-12">
+        <div className="max-w-2xl w-full">
+          <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-12 text-center border-2 border-green-100">
+            <div className="bg-gradient-to-br from-green-400 to-green-600 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl animate-bounce">
+              <ShieldCheck className="w-14 h-14 text-white" />
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 flex items-center justify-center gap-2 flex-wrap">
+              <span className="bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">Order Sent!</span>
+              <Sparkles className="w-7 h-7 text-yellow-500" />
+            </h1>
+            <p className="text-gray-600 mb-8 text-base md:text-lg leading-relaxed">
+              Your order has been sent to our WhatsApp. 
+              <Heart className="inline w-5 h-5 text-pink-500 mx-1" />
+              We will confirm your order and send you the payment details shortly!
+            </p>
+            
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 mb-8 text-left border-2 border-blue-100">
+              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                What happens next? 
+                <Sparkles className="w-5 h-5 text-yellow-500" />
+              </h3>
+              <ul className="space-y-3 text-sm md:text-base text-gray-700">
+                <li className="flex items-start gap-3">
+                  <span className="text-2xl">1️⃣</span>
+                  <span>We'll confirm your order on WhatsApp within 24 hours</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-2xl">2️⃣</span>
+                  <span>Send payment via your selected method</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-2xl">3️⃣</span>
+                  <span>Products carefully packaged and shipped</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-2xl">4️⃣</span>
+                  <span>Delivery in 3-5 business days 🚚</span>
+                </li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                window.location.href = '/';
+              }}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-3 md:py-4 rounded-2xl font-bold text-base md:text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center gap-2"
+            >
+              <Heart className="w-5 h-5 animate-pulse" />
+              Continue Shopping
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 'details') {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex items-center mb-8">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-6 md:py-8">
+        <div className="container mx-auto px-3 md:px-4 max-w-6xl">
           <button
             onClick={onBack}
-            className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200"
+            className="text-blue-600 hover:text-blue-700 font-medium mb-4 md:mb-6 flex items-center gap-2 transition-colors group"
           >
-            <ArrowLeft className="h-5 w-5" />
-            <span>Back to Cart</span>
+            <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm md:text-base">Back to Cart</span>
           </button>
-          <h1 className="text-3xl font-noto font-semibold text-black ml-8">Order Details</h1>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Order Summary */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-2xl font-noto font-medium text-black mb-6">Order Summary</h2>
-            
-            <div className="space-y-4 mb-6">
-              {cartItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between py-2 border-b border-red-100">
-                  <div>
-                    <h4 className="font-medium text-black">{item.name}</h4>
-                    {item.selectedVariation && (
-                      <p className="text-sm text-gray-600">Size: {item.selectedVariation.name}</p>
-                    )}
-                    {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                      <p className="text-sm text-gray-600">
-                        Add-ons: {item.selectedAddOns.map(addOn => addOn.name).join(', ')}
-                      </p>
-                    )}
-                    <p className="text-sm text-gray-600">₱{item.totalPrice} x {item.quantity}</p>
-                  </div>
-                  <span className="font-semibold text-black">₱{item.totalPrice * item.quantity}</span>
-                </div>
-              ))}
-            </div>
-            
-            <div className="border-t border-red-200 pt-4">
-              <div className="flex items-center justify-between text-2xl font-noto font-semibold text-black">
-                <span>Total:</span>
-                <span>₱{totalPrice}</span>
-              </div>
-            </div>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 md:mb-8 flex items-center gap-2">
+            Checkout
+            <Sparkles className="w-6 h-6 md:w-7 md:h-7 text-yellow-500" />
+          </h1>
 
-          {/* Customer Details Form */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-2xl font-noto font-medium text-black mb-6">Customer Information</h2>
-            
-            <form className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Main Form */}
+            <div className="lg:col-span-2 space-y-4 md:space-y-6">
               {/* Customer Information */}
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">Full Name *</label>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Enter your full name"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">Contact Number *</label>
-                <input
-                  type="tel"
-                  value={contactNumber}
-                  onChange={(e) => setContactNumber(e.target.value)}
-                  className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                  placeholder="09XX XXX XXXX"
-                  required
-                />
-              </div>
-
-              {/* Service Type */}
-              <div>
-                <label className="block text-sm font-medium text-black mb-3">Service Type *</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { value: 'dine-in', label: 'Dine In', icon: '🪑' },
-                    { value: 'pickup', label: 'Pickup', icon: '🚶' },
-                    { value: 'delivery', label: 'Delivery', icon: '🛵' }
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setServiceType(option.value as ServiceType)}
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                        serviceType === option.value
-                          ? 'border-red-600 bg-red-600 text-white'
-                          : 'border-red-300 bg-white text-gray-700 hover:border-red-400'
-                      }`}
-                    >
-                      <div className="text-2xl mb-1">{option.icon}</div>
-                      <div className="text-sm font-medium">{option.label}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Dine-in Details */}
-              {serviceType === 'dine-in' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Party Size *</label>
-                    <div className="flex items-center space-x-4">
-                      <button
-                        type="button"
-                        onClick={() => setPartySize(Math.max(1, partySize - 1))}
-                        className="w-10 h-10 rounded-lg border-2 border-red-300 flex items-center justify-center text-red-600 hover:border-red-400 hover:bg-red-50 transition-all duration-200"
-                      >
-                        -
-                      </button>
-                      <span className="text-2xl font-semibold text-black min-w-[3rem] text-center">{partySize}</span>
-                      <button
-                        type="button"
-                        onClick={() => setPartySize(Math.min(20, partySize + 1))}
-                        className="w-10 h-10 rounded-lg border-2 border-red-300 flex items-center justify-center text-red-600 hover:border-red-400 hover:bg-red-50 transition-all duration-200"
-                      >
-                        +
-                      </button>
-                      <span className="text-sm text-gray-600 ml-2">person{partySize !== 1 ? 's' : ''}</span>
-                    </div>
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-5 md:p-6 border-2 border-blue-100">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6 flex items-center gap-2">
+                  <div className="bg-gradient-to-br from-blue-400 to-purple-500 p-2 rounded-xl">
+                    <Package className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Preferred Time *</label>
-                    <input
-                      type="datetime-local"
-                      value={dineInTime}
-                      onChange={(e) => setDineInTime(e.target.value)}
-                      className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Please select your preferred dining time</p>
-                  </div>
-                </>
-              )}
-
-              {/* Pickup Time Selection */}
-              {serviceType === 'pickup' && (
-                <div>
-                  <label className="block text-sm font-medium text-black mb-3">Pickup Time *</label>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { value: '5-10', label: '5-10 minutes' },
-                        { value: '15-20', label: '15-20 minutes' },
-                        { value: '25-30', label: '25-30 minutes' },
-                        { value: 'custom', label: 'Custom Time' }
-                      ].map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setPickupTime(option.value)}
-                          className={`p-3 rounded-lg border-2 transition-all duration-200 text-sm ${
-                            pickupTime === option.value
-                              ? 'border-red-600 bg-red-600 text-white'
-                              : 'border-red-300 bg-white text-gray-700 hover:border-red-400'
-                          }`}
-                        >
-                          <Clock className="h-4 w-4 mx-auto mb-1" />
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                    
-                    {pickupTime === 'custom' && (
-                      <input
-                        type="text"
-                        value={customTime}
-                        onChange={(e) => setCustomTime(e.target.value)}
-                        className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                        placeholder="e.g., 45 minutes, 1 hour, 2:30 PM"
-                        required
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Delivery Address */}
-              {serviceType === 'delivery' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Delivery Address *</label>
-                    <textarea
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Enter your complete delivery address"
-                      rows={3}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Landmark</label>
+                  Customer Information
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Full Name *
+                    </label>
                     <input
                       type="text"
-                      value={landmark}
-                      onChange={(e) => setLandmark(e.target.value)}
-                      className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                      placeholder="e.g., Near McDonald's, Beside 7-Eleven, In front of school"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="input-field"
+                      placeholder="Juan Dela Cruz"
+                      required
                     />
                   </div>
-                </>
-              )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="input-field"
+                      placeholder="juan@gmail.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="input-field"
+                      placeholder="09XX XXX XXXX"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
 
-              {/* Special Notes */}
-              <div>
-                <label className="block text-sm font-medium text-black mb-2">Special Instructions</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Any special requests or notes..."
-                  rows={3}
-                />
+              {/* Shipping Address */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-5 md:p-6 border-2 border-purple-100">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6 flex items-center gap-2">
+                  <span className="text-2xl">📦</span>
+                  Shipping Address
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Street Address *
+                    </label>
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="input-field"
+                      placeholder="123 Rizal Street, Brgy. San Antonio"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        City *
+                      </label>
+                      <input
+                        type="text"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        className="input-field"
+                        placeholder="Quezon City"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Province *
+                      </label>
+                      <input
+                        type="text"
+                        value={state}
+                        onChange={(e) => setState(e.target.value)}
+                        className="input-field"
+                        placeholder="Metro Manila"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ZIP/Postal Code *
+                      </label>
+                      <input
+                        type="text"
+                        value={zipCode}
+                        onChange={(e) => setZipCode(e.target.value)}
+                        className="input-field"
+                        placeholder="1100"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Country *
+                      </label>
+                      <input
+                        type="text"
+                        value={country}
+                        onChange={(e) => setCountry(e.target.value)}
+                        className="input-field"
+                        placeholder="Philippines"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <button
                 onClick={handleProceedToPayment}
                 disabled={!isDetailsValid}
-                className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
+                className={`w-full py-3 md:py-4 rounded-2xl font-bold text-base md:text-lg transition-all transform shadow-lg ${
                   isDetailsValid
-                    ? 'bg-red-600 text-white hover:bg-red-700 hover:scale-[1.02]'
+                    ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white hover:scale-105 hover:shadow-xl'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                Proceed to Payment
+                Proceed to Payment ✨
               </button>
-            </form>
+            </div>
+
+            {/* Order Summary Sidebar */}
+            <div className="lg:col-span-1">
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-5 md:p-6 sticky top-24 border-2 border-pink-100">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6 flex items-center gap-2">
+                  Order Summary
+                  <Heart className="w-5 h-5 text-pink-500 animate-pulse" />
+                </h2>
+                
+                <div className="space-y-4 mb-6">
+                  {cartItems.map((item, index) => (
+                    <div key={index} className="pb-4 border-b border-gray-200">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 text-sm">{item.product.name}</h4>
+                          {item.variation && (
+                            <p className="text-xs text-blue-600 mt-1">{item.variation.name}</p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">
+                            {item.product.purity_percentage}% Purity
+                          </p>
+                        </div>
+                        <span className="font-semibold text-gray-900 text-sm">
+                          ${(item.price * item.quantity).toFixed(2)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3 mb-6">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Subtotal</span>
+                    <span className="font-medium">${totalPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Shipping</span>
+                    <span className="font-medium">
+                      {shippingCost === 0 ? (
+                        <span className="text-green-600">FREE</span>
+                      ) : (
+                        `$${shippingCost.toFixed(2)}`
+                      )}
+                    </span>
+                  </div>
+                  <div className="border-t-2 border-gray-200 pt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-gray-900">Total</span>
+                      <span className="text-2xl font-bold text-blue-600">
+                        ${finalTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 rounded-lg p-4 text-xs text-gray-600 space-y-2">
+                  <p className="flex items-center gap-2">
+                    <span className="text-green-500">✓</span>
+                    Secure encrypted checkout
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span className="text-green-500">✓</span>
+                    3-5 day shipping
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span className="text-green-500">✓</span>
+                    Temperature-controlled packaging
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -353,157 +431,161 @@ Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
   }
 
   // Payment Step
+  const paymentMethodInfo = paymentMethods.find(pm => pm.id === selectedPaymentMethod);
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-6 md:py-8">
+      <div className="container mx-auto px-3 md:px-4 max-w-6xl">
         <button
           onClick={() => setStep('details')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200"
+          className="text-blue-600 hover:text-blue-700 font-medium mb-4 md:mb-6 flex items-center gap-2 transition-colors group"
         >
-          <ArrowLeft className="h-5 w-5" />
-          <span>Back to Details</span>
+          <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-sm md:text-base">Back to Details</span>
         </button>
-        <h1 className="text-3xl font-noto font-semibold text-black ml-8">Payment</h1>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Payment Method Selection */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-2xl font-noto font-medium text-black mb-6">Choose Payment Method</h2>
-          
-          <div className="grid grid-cols-1 gap-4 mb-6">
-            {paymentMethods.map((method) => (
-              <button
-                key={method.id}
-                type="button"
-                onClick={() => setPaymentMethod(method.id as PaymentMethod)}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 flex items-center space-x-3 ${
-                  paymentMethod === method.id
-                    ? 'border-red-600 bg-red-600 text-white'
-                    : 'border-red-300 bg-white text-gray-700 hover:border-red-400'
-                }`}
-              >
-                <span className="text-2xl">💳</span>
-                <span className="font-medium">{method.name}</span>
-              </button>
-            ))}
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 md:mb-8 flex items-center gap-2">
+          Payment
+          <CreditCard className="w-6 h-6 md:w-7 md:h-7 text-blue-600" />
+        </h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
+          {/* Payment Form */}
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
+            {/* Payment Method Selection */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-5 md:p-6 border-2 border-green-100">
+              <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6 flex items-center gap-2">
+                <div className="bg-gradient-to-br from-green-400 to-green-600 p-2 rounded-xl">
+                  <CreditCard className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                </div>
+                Payment Method
+              </h2>
+              
+              <div className="grid grid-cols-1 gap-4 mb-6">
+                {paymentMethods.map((method) => (
+                  <button
+                    key={method.id}
+                    onClick={() => setSelectedPaymentMethod(method.id)}
+                    className={`p-4 rounded-lg border-2 transition-all flex items-center justify-between ${
+                      selectedPaymentMethod === method.id
+                        ? 'border-blue-600 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-semibold text-gray-900">{method.name}</p>
+                        <p className="text-sm text-gray-500">{method.account_name}</p>
+                      </div>
+                    </div>
+                    {selectedPaymentMethod === method.id && (
+                      <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs">✓</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {paymentMethodInfo && (
+                <div className="bg-blue-50 rounded-lg p-6">
+                  <h3 className="font-semibold text-gray-900 mb-4">Payment Details</h3>
+                  <div className="space-y-2 text-sm text-gray-700 mb-4">
+                    <p><strong>Account Number:</strong> {paymentMethodInfo.account_number}</p>
+                    <p><strong>Account Name:</strong> {paymentMethodInfo.account_name}</p>
+                    <p><strong>Amount to Pay:</strong> <span className="text-xl font-bold text-blue-600">₱{finalTotal.toLocaleString('en-PH', { minimumFractionDigits: 0 })}</span></p>
+                  </div>
+                  
+                  {paymentMethodInfo.qr_code_url && (
+                    <div className="flex justify-center">
+                      <div className="bg-white p-4 rounded-lg">
+                        <img
+                          src={paymentMethodInfo.qr_code_url}
+                          alt="Payment QR Code"
+                          className="w-48 h-48 object-contain"
+                        />
+                        <p className="text-xs text-center text-gray-500 mt-2">Scan to pay</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Additional Notes */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-5 md:p-6 border-2 border-pink-100">
+              <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span className="text-2xl">📝</span>
+                Order Notes (Optional)
+              </h2>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="input-field"
+                rows={4}
+                placeholder="Any special instructions or notes for your order..."
+              />
+            </div>
+
+            <button
+              onClick={handlePlaceOrder}
+              className="w-full bg-gradient-to-r from-green-400 via-green-500 to-green-600 hover:from-green-500 hover:via-green-600 hover:to-green-700 text-white py-3 md:py-4 rounded-2xl font-bold text-base md:text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center gap-2"
+            >
+              <ShieldCheck className="w-5 h-5 md:w-6 md:h-6" />
+              Send Order to WhatsApp
+            </button>
           </div>
 
-          {/* Payment Details with QR Code */}
-          {selectedPaymentMethod && (
-            <div className="bg-red-50 rounded-lg p-6 mb-6">
-              <h3 className="font-medium text-black mb-4">Payment Details</h3>
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">{selectedPaymentMethod.name}</p>
-                  <p className="font-mono text-black font-medium">{selectedPaymentMethod.account_number}</p>
-                  <p className="text-sm text-gray-600 mb-3">Account Name: {selectedPaymentMethod.account_name}</p>
-                  <p className="text-xl font-semibold text-black">Amount: ₱{totalPrice}</p>
+          {/* Order Summary Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-5 md:p-6 sticky top-24 border-2 border-blue-100">
+              <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6 flex items-center gap-2">
+                Final Summary
+                <Sparkles className="w-5 h-5 text-yellow-500" />
+              </h2>
+              
+              {/* Customer Info */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6 text-sm">
+                <p className="font-semibold text-gray-900 mb-2">{fullName}</p>
+                <p className="text-gray-600">{email}</p>
+                <p className="text-gray-600">{phone}</p>
+                <div className="mt-3 pt-3 border-t border-gray-200 text-gray-600">
+                  <p>{address}</p>
+                  <p>{city}, {state} {zipCode}</p>
+                  <p>{country}</p>
                 </div>
-                <div className="flex-shrink-0">
-                  <img 
-                    src={selectedPaymentMethod.qr_code_url} 
-                    alt={`${selectedPaymentMethod.name} QR Code`}
-                    className="w-32 h-32 rounded-lg border-2 border-red-300 shadow-sm"
-                    onError={(e) => {
-                      e.currentTarget.src = 'https://images.pexels.com/photos/8867482/pexels-photo-8867482.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop';
-                    }}
-                  />
-                  <p className="text-xs text-gray-500 text-center mt-2">Scan to pay</p>
+              </div>
+
+              {/* Pricing */}
+              <div className="space-y-3">
+                <div className="flex justify-between text-gray-600">
+                  <span>Subtotal</span>
+                  <span className="font-medium">₱{totalPrice.toLocaleString('en-PH', { minimumFractionDigits: 0 })}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping</span>
+                  <span className="font-medium">
+                    {shippingCost === 0 ? (
+                      <span className="text-green-600">FREE</span>
+                    ) : (
+                      `₱${shippingCost.toLocaleString('en-PH', { minimumFractionDigits: 0 })}`
+                    )}
+                  </span>
+                </div>
+                <div className="border-t-2 border-gray-200 pt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-gray-900">Total</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      ₱{finalTotal.toLocaleString('en-PH', { minimumFractionDigits: 0 })}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Reference Number */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <h4 className="font-medium text-black mb-2">📸 Payment Proof Required</h4>
-            <p className="text-sm text-gray-700">
-              After making your payment, please take a screenshot of your payment receipt and attach it when you send your order via Messenger. This helps us verify and process your order quickly.
-            </p>
           </div>
-        </div>
-
-        {/* Order Summary */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-2xl font-noto font-medium text-black mb-6">Final Order Summary</h2>
-          
-          <div className="space-y-4 mb-6">
-            <div className="bg-red-50 rounded-lg p-4">
-              <h4 className="font-medium text-black mb-2">Customer Details</h4>
-              <p className="text-sm text-gray-600">Name: {customerName}</p>
-              <p className="text-sm text-gray-600">Contact: {contactNumber}</p>
-              <p className="text-sm text-gray-600">Service: {serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}</p>
-              {serviceType === 'delivery' && (
-                <>
-                  <p className="text-sm text-gray-600">Address: {address}</p>
-                  {landmark && <p className="text-sm text-gray-600">Landmark: {landmark}</p>}
-                </>
-              )}
-              {serviceType === 'pickup' && (
-                <p className="text-sm text-gray-600">
-                  Pickup Time: {pickupTime === 'custom' ? customTime : `${pickupTime} minutes`}
-                </p>
-              )}
-              {serviceType === 'dine-in' && (
-                <>
-                  <p className="text-sm text-gray-600">
-                    Party Size: {partySize} person{partySize !== 1 ? 's' : ''}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Preferred Time: {dineInTime ? new Date(dineInTime).toLocaleString('en-US', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric', 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    }) : 'Not selected'}
-                  </p>
-                </>
-              )}
-            </div>
-
-            {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between py-2 border-b border-red-100">
-                <div>
-                  <h4 className="font-medium text-black">{item.name}</h4>
-                  {item.selectedVariation && (
-                    <p className="text-sm text-gray-600">Size: {item.selectedVariation.name}</p>
-                  )}
-                  {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                    <p className="text-sm text-gray-600">
-                      Add-ons: {item.selectedAddOns.map(addOn => 
-                        addOn.quantity && addOn.quantity > 1 
-                          ? `${addOn.name} x${addOn.quantity}`
-                          : addOn.name
-                      ).join(', ')}
-                    </p>
-                  )}
-                  <p className="text-sm text-gray-600">₱{item.totalPrice} x {item.quantity}</p>
-                </div>
-                <span className="font-semibold text-black">₱{item.totalPrice * item.quantity}</span>
-              </div>
-            ))}
-          </div>
-          
-          <div className="border-t border-red-200 pt-4 mb-6">
-            <div className="flex items-center justify-between text-2xl font-noto font-semibold text-black">
-              <span>Total:</span>
-              <span>₱{totalPrice}</span>
-            </div>
-          </div>
-
-          <button
-            onClick={handlePlaceOrder}
-            className="w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform bg-red-600 text-white hover:bg-red-700 hover:scale-[1.02]"
-          >
-            Place Order via Messenger
-          </button>
-          
-          <p className="text-xs text-gray-500 text-center mt-3">
-            You'll be redirected to Facebook Messenger to confirm your order. Don't forget to attach your payment screenshot!
-          </p>
         </div>
       </div>
     </div>
