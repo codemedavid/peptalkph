@@ -61,7 +61,11 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
   }, [paymentMethods, selectedPaymentMethod]);
 
   // Calculate shipping fee based on location (uses dynamic fees from database)
-  const shippingFee = shippingLocation ? getShippingFee(shippingLocation) : 0;
+  // For Lalamove in NCR, shipping is "to be discussed" (price shown is for J&T only)
+  const baseShippingFee = shippingLocation ? getShippingFee(shippingLocation) : 0;
+  const isLalamoveNCR = shippingLocation === 'NCR' && courier === 'lalamove';
+  const shippingFee = isLalamoveNCR ? 0 : baseShippingFee;
+  const shippingDisplay = isLalamoveNCR ? 'to be discussed' : `₱${shippingFee.toLocaleString('en-PH', { minimumFractionDigits: 0 })}`;
 
   // Calculate Discount
   const discountAmount = appliedPromo
@@ -264,8 +268,8 @@ ${cartItems.map(item => {
 
 💰 PRICING
 Product Total: ₱${totalPrice.toLocaleString('en-PH', { minimumFractionDigits: 0 })}
-Shipping Fee: ₱${shippingFee.toLocaleString('en-PH', { minimumFractionDigits: 0 })} (${shippingLocation.replace('_', ' & ')})
-${appliedPromo ? `Discount (${appliedPromo.code}): -₱${actualDiscount.toLocaleString('en-PH', { minimumFractionDigits: 0 })}\n` : ''}Grand Total: ₱${finalTotal.toLocaleString('en-PH', { minimumFractionDigits: 0 })}
+Shipping Fee: ${shippingDisplay} (${shippingLocation.replace('_', ' & ')})${isLalamoveNCR ? '\nNote: Lalamove shipping fee to be discussed' : ''}
+${appliedPromo ? `Discount (${appliedPromo.code}): -₱${actualDiscount.toLocaleString('en-PH', { minimumFractionDigits: 0 })}\n` : ''}Grand Total: ₱${finalTotal.toLocaleString('en-PH', { minimumFractionDigits: 0 })}${isLalamoveNCR ? ' (excluding shipping)' : ''}
 
 💳 PAYMENT METHOD
 ${paymentMethod?.name || 'N/A'}
@@ -644,7 +648,7 @@ Please confirm this order. Thank you!
                         }`}
                     >
                       <p className="font-semibold text-gray-900 text-sm">{loc.id.replace('_', ' & ')}</p>
-                      <p className="text-xs text-gray-500">₱{loc.fee.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">₱{loc.fee.toLocaleString()} (J&T)</p>
                     </button>
                   ))}
                 </div>
@@ -680,6 +684,13 @@ Please confirm this order. Thank you!
 
                     {shippingLocation !== 'NCR' && (
                       <p className="text-xs text-gray-500 mt-2">Lalamove is only available for NCR delivery.</p>
+                    )}
+
+                    {courier === 'lalamove' && shippingLocation === 'NCR' && (
+                      <div className="mt-3 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                        <p className="text-sm text-orange-800 font-medium">💡 Lalamove Shipping Fee</p>
+                        <p className="text-xs text-orange-700 mt-0.5">The shipping fee for Lalamove will be discussed and confirmed with you before processing your order.</p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -762,8 +773,9 @@ Please confirm this order. Thank you!
                     <span className="font-medium">₱{totalPrice.toLocaleString('en-PH', { minimumFractionDigits: 0 })}</span>
                   </div>
                   <div className="flex justify-between text-gray-600 text-xs">
+                    <span>Shipping</span>
                     <span className="font-medium text-theme-secondary">
-                      {shippingLocation ? `₱${shippingFee.toLocaleString('en-PH', { minimumFractionDigits: 0 })}` : 'Select location'}
+                      {shippingLocation ? shippingDisplay : 'Select location'}
                     </span>
                   </div>
 
@@ -866,7 +878,13 @@ Please confirm this order. Thank you!
                 {shippingLocations.map((loc) => (
                   <button
                     key={loc.id}
-                    onClick={() => setShippingLocation(loc.id as 'NCR' | 'LUZON' | 'VISAYAS_MINDANAO')}
+                    onClick={() => {
+                      setShippingLocation(loc.id as 'NCR' | 'LUZON' | 'VISAYAS_MINDANAO');
+                      // Reset to J&T if not NCR
+                      if (loc.id !== 'NCR') {
+                        setCourier('jnt');
+                      }
+                    }}
                     className={`p-4 rounded-lg border-2 transition-all flex items-center justify-between ${shippingLocation === loc.id
                       ? 'border-theme-accent bg-theme-accent/5'
                       : 'border-gray-200 hover:border-theme-accent/50'
@@ -874,7 +892,7 @@ Please confirm this order. Thank you!
                   >
                     <div className="text-left">
                       <p className="font-semibold text-gray-900">{loc.id.replace('_', ' & ')}</p>
-                      <p className="text-sm text-gray-500">₱{loc.fee.toLocaleString()}</p>
+                      <p className="text-sm text-gray-500">₱{loc.fee.toLocaleString()} (J&T)</p>
                     </div>
                     {shippingLocation === loc.id && (
                       <div className="w-6 h-6 bg-theme-accent rounded-full flex items-center justify-center">
@@ -884,6 +902,75 @@ Please confirm this order. Thank you!
                   </button>
                 ))}
               </div>
+
+              {/* Courier Selection */}
+              {shippingLocation && (
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Select Courier</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setCourier('jnt')}
+                      className={`p-3 rounded-lg border transition-all flex items-center justify-center gap-2 ${courier === 'jnt'
+                        ? 'border-theme-accent bg-theme-accent/5 text-theme-text'
+                        : 'border-gray-200 hover:border-theme-accent/50'
+                        }`}
+                    >
+                      <span className="text-sm font-medium">J&T Express</span>
+                    </button>
+
+                    <button
+                      onClick={() => setCourier('lalamove')}
+                      disabled={shippingLocation !== 'NCR'}
+                      className={`p-3 rounded-lg border transition-all flex items-center justify-center gap-2 ${shippingLocation !== 'NCR'
+                        ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                        : courier === 'lalamove'
+                          ? 'border-orange-500 bg-orange-50 text-orange-900'
+                          : 'border-gray-200 hover:border-orange-300'
+                        }`}
+                    >
+                      <span className="text-sm font-medium">Lalamove</span>
+                    </button>
+                  </div>
+
+                  {shippingLocation !== 'NCR' && (
+                    <p className="text-xs text-gray-500 mt-2">Lalamove is only available for NCR delivery.</p>
+                  )}
+
+                  {isLalamoveNCR && (
+                    <div className="mt-3 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <p className="text-sm text-orange-800 font-medium">💡 Lalamove Shipping Fee</p>
+                      <p className="text-xs text-orange-700 mt-0.5">The shipping fee for Lalamove in NCR will be discussed and confirmed with you before processing your order.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Courier Delay Notices */}
+              {shippingLocation && (
+                <div className="mt-4 space-y-3">
+                  {/* J&T Notice */}
+                  {siteSettings?.jnt_delay_active && courier === 'jnt' && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                      <span className="text-lg">📢</span>
+                      <div>
+                        <p className="text-sm text-red-800 font-medium">Courier Notice (J&T)</p>
+                        <p className="text-xs text-red-700 mt-0.5">{siteSettings.jnt_delay_message}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lalamove Notice */}
+                  {siteSettings?.lalamove_delay_active && courier === 'lalamove' && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-start gap-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                      <span className="text-lg">📢</span>
+                      <div>
+                        <p className="text-sm text-orange-800 font-medium">Courier Notice (Lalamove)</p>
+                        <p className="text-xs text-orange-700 mt-0.5">{siteSettings.lalamove_delay_message}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Payment Method Selection */}
@@ -1057,7 +1144,7 @@ Please confirm this order. Thank you!
               <div className="flex justify-between text-gray-600 text-xs">
                 <span>Shipping</span>
                 <span className="font-medium text-theme-secondary">
-                  {shippingLocation ? `₱${shippingFee.toLocaleString('en-PH', { minimumFractionDigits: 0 })} (${shippingLocation.replace('_', ' & ')})` : 'Select location'}
+                  {shippingLocation ? `${shippingDisplay} (${shippingLocation.replace('_', ' & ')})` : 'Select location'}
                 </span>
               </div>
               <div className="border-t-2 border-gray-200 pt-3">
