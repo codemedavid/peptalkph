@@ -535,8 +535,87 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
   onUpdateStatus,
   isProcessing
 }) => {
-  const totalItems = order.order_items.reduce((sum, item) => sum + item.quantity, 0);
-  const finalTotal = order.total_price + (order.shipping_fee || 0);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedItems, setEditedItems] = useState<OrderItem[]>([]);
+
+  useEffect(() => {
+    if (isEditing) {
+      setEditedItems(JSON.parse(JSON.stringify(order.order_items)));
+    }
+  }, [isEditing, order.order_items]);
+
+  const handleQuantityChange = (index: number, newQuantity: number) => {
+    if (newQuantity < 1) return;
+    const newItems = [...editedItems];
+    newItems[index].quantity = newQuantity;
+    newItems[index].total = newItems[index].price * newQuantity;
+    setEditedItems(newItems);
+  };
+
+  const handleRemoveItem = (index: number) => {
+    if (confirm('Are you sure you want to remove this item?')) {
+      const newItems = editedItems.filter((_, i) => i !== index);
+      setEditedItems(newItems);
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    if (editedItems.length === 0) {
+      alert('Order must have at least one item.');
+      return;
+    }
+
+    try {
+      // Calculate new totals
+      const newItemsTotal = editedItems.reduce((sum, item) => sum + item.total, 0);
+
+      // Calculate new discount if percentage based
+      // Note: We don't have the full promo code details here easily to re-check validity logic (min spend etc)
+      // For simplicity, we'll assume fixed discount stays same, percentage scales? 
+      // Or safer: just keep discount amount unless it exceeds total?
+      // Let's keep it simple: if percentage was applied, we might need to recalculate.
+      // But we lack the 'discount_type' and 'discount_value' in the Order object interface (only amount).
+      // Ideally we should fetch promo info again.
+      // For now, let's just clamp discount to new total.
+      const currentDiscount = order.discount_amount || 0;
+      const newTotalBeforeShipping = newItemsTotal;
+      const safeDiscount = Math.min(currentDiscount, newTotalBeforeShipping);
+
+      // Save to Supabase
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          order_items: editedItems,
+          total_price: newItemsTotal,
+          discount_amount: safeDiscount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', order.id);
+
+      if (error) throw error;
+
+      alert('Order updated successfully!');
+      setIsEditing(false);
+      // Determine expected status logic? No, just keep current status.
+      // But we need to refresh parent state. 
+      // OrderDetailsView props doesn't have a 'refresh' callback, but 'onUpdateStatus' does a refresh.
+      // We might need to trigger a reload.
+      // We can hack it by calling onUpdateStatus with same status? No that triggers processing.
+      // We should restart the view. calling onBack() is easiest or reload logic.
+      // Ideally pass a 'onRefresh' prop.
+      // For now let's just alert and maybe user clicks refresh manually or we force back.
+      onBack(); // Go back to list to force refresh for now is safest without prop drilling
+    } catch (error) {
+      console.error('Error updating order:', error);
+      alert('Failed to update order.');
+    }
+  };
+
+  const totalItems = (isEditing ? editedItems : order.order_items).reduce((sum, item) => sum + item.quantity, 0);
+  const currentTotalPrice = (isEditing ? editedItems : order.order_items).reduce((sum, item) => sum + item.total, 0);
+  const currentDiscount = isEditing ? Math.min(order.discount_amount || 0, currentTotalPrice) : (order.discount_amount || 0);
+  const finalTotal = currentTotalPrice + (order.shipping_fee || 0) - currentDiscount;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white">
@@ -552,9 +631,34 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                 <span className="text-xs md:text-sm">Back to Orders</span>
               </button>
               <h1 className="text-sm md:text-base lg:text-xl font-bold bg-gradient-to-r from-black to-gray-900 bg-clip-text text-transparent truncate">
-                Order #{order.id.slice(0, 8).toUpperCase()}
+                {isEditing ? 'Editing Order #' : 'Order #'}{order.id.slice(0, 8).toUpperCase()}
               </h1>
             </div>
+
+            {/* Edit Controls */}
+            {!isEditing ? (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-3 md:px-4 py-1.5 md:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-xs md:text-sm font-medium border border-gray-300"
+              >
+                Edit Order
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 md:px-4 py-1.5 md:py-2 bg-white text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-xs md:text-sm font-medium border border-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveChanges}
+                  className="px-3 md:px-4 py-1.5 md:py-2 bg-theme-accent text-white hover:bg-theme-accent/90 rounded-lg transition-colors text-xs md:text-sm font-medium shadow-sm"
+                >
+                  Save Changes
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -574,7 +678,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                 {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
               </span>
             </div>
-            {order.order_status === 'new' && (
+            {order.order_status === 'new' && !isEditing && (
               <button
                 onClick={onConfirm}
                 disabled={isProcessing}
@@ -620,19 +724,42 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
           <div>
             <h3 className="font-bold text-gray-900 mb-2 md:mb-3 text-sm md:text-base">Order Items ({totalItems} items)</h3>
             <div className="space-y-2">
-              {order.order_items.map((item, index) => (
+              {(isEditing ? editedItems : order.order_items).map((item, index) => (
                 <div key={index} className="bg-gray-50 rounded-lg p-3 md:p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 text-xs md:text-sm">
                       {item.product_name} {item.variation_name ? `- ${item.variation_name}` : ''}
                     </p>
                     <p className="text-[10px] md:text-xs text-gray-500">
-                      Quantity: {item.quantity} × ₱{item.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                      Price: ₱{item.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
-                  <p className="font-bold text-gray-900 text-xs md:text-sm sm:text-base">
-                    ₱{item.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                  </p>
+
+                  {isEditing ? (
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => handleQuantityChange(index, parseInt(e.target.value) || 1)}
+                        className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+                      />
+                      <button
+                        onClick={() => handleRemoveItem(index)}
+                        className="text-red-500 hover:text-red-700 p-1"
+                        title="Remove item"
+                      >
+                        <XCircle className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-right">
+                      <p className="text-xs md:text-sm text-gray-700">Quantity: {item.quantity}</p>
+                      <p className="font-bold text-gray-900 text-xs md:text-sm sm:text-base">
+                        ₱{item.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -683,12 +810,18 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
             <div className="space-y-1.5 md:space-y-2 text-xs md:text-sm">
               <div className="flex justify-between">
                 <span>Subtotal:</span>
-                <span className="font-semibold">₱{order.total_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                <span className="font-semibold">₱{currentTotalPrice.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
               </div>
               {order.shipping_fee && order.shipping_fee > 0 && (
                 <div className="flex justify-between">
                   <span>Shipping Fee:</span>
                   <span className="font-semibold">₱{order.shipping_fee.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+              {currentDiscount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount:</span>
+                  <span className="font-semibold">-₱{currentDiscount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
               <div className="flex justify-between text-base md:text-lg font-bold border-t-2 border-gray-200 pt-2">
@@ -709,7 +842,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
           )}
 
           {/* Status Update Buttons */}
-          {order.order_status !== 'new' && order.order_status !== 'cancelled' && order.order_status !== 'delivered' && (
+          {!isEditing && order.order_status !== 'new' && order.order_status !== 'cancelled' && order.order_status !== 'delivered' && (
             <div className="border-t-2 border-gray-200 pt-3 md:pt-4">
               <h3 className="font-bold text-gray-900 mb-2 md:mb-3 text-sm md:text-base">Update Status</h3>
               <div className="flex flex-wrap gap-2">

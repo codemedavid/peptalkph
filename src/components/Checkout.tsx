@@ -163,6 +163,52 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     const paymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethod);
 
     try {
+      // 1. Validate Stock Levels
+      // We need to check each item in the cart against the database
+      const errors: string[] = [];
+      const stockCheckPromises = cartItems.map(async (item) => {
+        if (item.variation) {
+          // Check variation stock
+          const { data: variationData, error: variationError } = await supabase
+            .from('variations')
+            .select('stock_quantity, name')
+            .eq('id', item.variation.id)
+            .single();
+
+          if (variationError || !variationData) {
+            errors.push(`Could not verify stock for ${item.product.name} (${item.variation.name})`);
+            return;
+          }
+
+          if (variationData.stock_quantity < item.quantity) {
+            errors.push(`Insufficient stock for ${item.product.name} (${item.variation.name}). available: ${variationData.stock_quantity}, requested: ${item.quantity}`);
+          }
+        } else {
+          // Check product stock
+          const { data: productData, error: productError } = await supabase
+            .from('products')
+            .select('stock_quantity, name')
+            .eq('id', item.product.id)
+            .single();
+
+          if (productError || !productData) {
+            errors.push(`Could not verify stock for ${item.product.name}`);
+            return;
+          }
+
+          if (productData.stock_quantity < item.quantity) {
+            errors.push(`Insufficient stock for ${item.product.name}. available: ${productData.stock_quantity}, requested: ${item.quantity}`);
+          }
+        }
+      });
+
+      await Promise.all(stockCheckPromises);
+
+      if (errors.length > 0) {
+        alert("Cannot place order due to stock issues:\n" + errors.join("\n"));
+        return;
+      }
+
       // Prepare order items for database
       const orderItems = cartItems.map(item => ({
         product_id: item.product.id,
