@@ -170,7 +170,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
         if (item.variation) {
           // Check variation stock
           const { data: variationData, error: variationError } = await supabase
-            .from('variations')
+            .from('product_variations')
             .select('stock_quantity, name')
             .eq('id', item.variation.id)
             .single();
