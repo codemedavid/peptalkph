@@ -14,6 +14,7 @@ import COA from './components/COA';
 import FAQ from './components/FAQ';
 import { useMenu } from './hooks/useMenu';
 import { useCOAPageSetting } from './hooks/useCOAPageSetting';
+import OrderTracking from './components/OrderTracking';
 
 function MainApp() {
   const cart = useCart();
@@ -104,6 +105,8 @@ function App() {
         <Route path="/" element={<MainApp />} />
         {coaPageEnabled && <Route path="/coa" element={<COA />} />}
         <Route path="/faq" element={<FAQ />} />
+
+        <Route path="/track-order" element={<OrderTracking />} />
         <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
     </Router>

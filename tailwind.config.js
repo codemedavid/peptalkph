@@ -10,7 +10,7 @@ export default {
         // Minimalist Modern Theme
         'theme-bg': '#F1EFE7',      // Cream/Base
         'theme-text': '#1E1E1E',    // Charcoal/Dark
-        'theme-accent': '#6DA8A1',  // Teal
+        'theme-accent': '#7D2343',  // Maroon
         'theme-secondary': '#C38E70', // Terracotta
 
         // Mapping standard colors to the new theme for compatibility
@@ -32,7 +32,7 @@ export default {
           100: '#E0F0EE', // Light teal tint
           200: '#BFE0DC',
           300: '#9BCEC7',
-          400: '#6DA8A1', // Accent
+          400: '#7D2343', // Accent
           500: '#C38E70', // Secondary
           600: '#A8795E',
           700: '#8D644D',
@@ -40,9 +40,9 @@ export default {
           900: '#1E1E1E',
         },
         accent: {
-          light: '#9BCEC7',
-          DEFAULT: '#6DA8A1',
-          dark: '#588D87',
+          light: '#A0455E',
+          DEFAULT: '#7D2343',
+          dark: '#5C1A32',
           white: '#ffffff',
           black: '#1E1E1E',
         },

@@ -25,6 +25,7 @@ export interface Product {
 
   // Images and metadata
   image_url: string | null;
+  gallery_images?: string[] | null;
   safety_sheet_url: string | null;
 
   created_at: string;

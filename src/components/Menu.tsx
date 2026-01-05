@@ -28,7 +28,7 @@ const Menu: React.FC<MenuProps> = ({ menuItems, addToCart, cartItems }) => {
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
       case 'name':
-        return a.name.localeCompare(b.name);
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
       case 'price':
         return a.base_price - b.base_price;
       case 'purity':

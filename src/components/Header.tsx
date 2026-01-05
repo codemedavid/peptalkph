@@ -66,6 +66,12 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
                   </a>
                 )}
                 <a
+                  href="/track-order"
+                  className="text-sm font-medium text-gray-600 hover:text-theme-accent transition-colors"
+                >
+                  Track Order
+                </a>
+                <a
                   href="/faq"
                   className="text-sm font-medium text-gray-600 hover:text-theme-accent transition-colors"
                 >
@@ -139,6 +145,13 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
                     Lab Reports
                   </a>
                 )}
+                <a
+                  href="/track-order"
+                  className="text-left text-theme-text font-medium text-base hover:text-theme-accent transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Track Order
+                </a>
                 <a
                   href="/faq"
                   className="text-left text-theme-text font-medium text-base hover:text-theme-accent transition-colors"

@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Save, X, ArrowLeft, Package, CreditCard, Sparkles, Layers, Shield, RefreshCw, Warehouse, ShoppingCart, HelpCircle, MapPin, Check, Tag } from 'lucide-react';
 import type { Product } from '../types';
 import { useMenu } from '../hooks/useMenu';
 import { useCategories } from '../hooks/useCategories';
+import { supabase } from '../lib/supabase';
 import ImageUpload from './ImageUpload';
+import MultiImageUpload from './MultiImageUpload';
 import CategoryManager from './CategoryManager';
 import PaymentMethodManager from './PaymentMethodManager';
 import VariationManager from './VariationManager';
@@ -30,6 +32,35 @@ const AdminDashboard: React.FC = () => {
   const [managingVariationsProductId, setManagingVariationsProductId] = useState<string | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [totalOrders, setTotalOrders] = useState(0);
+
+  // Fetch live order count
+  useEffect(() => {
+    const fetchOrderCount = async () => {
+      const { count } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true });
+      setTotalOrders(count || 0);
+    };
+
+    fetchOrderCount();
+
+    // Subscribe to realtime changes
+    const subscription = supabase
+      .channel('admin_dashboard_stats')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => {
+          fetchOrderCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
 
   const variationManagerProduct = managingVariationsProductId
@@ -58,7 +89,8 @@ const AdminDashboard: React.FC = () => {
     stock_quantity: 0,
     image_url: null,
     discount_active: false,
-    inclusions: null
+    inclusions: null,
+    gallery_images: []
   });
 
   const handleAddProduct = () => {
@@ -81,7 +113,8 @@ const AdminDashboard: React.FC = () => {
       stock_quantity: 0,
       image_url: null,
       discount_active: false,
-      inclusions: null
+      inclusions: null,
+      gallery_images: []
     });
   };
 
@@ -186,6 +219,7 @@ const AdminDashboard: React.FC = () => {
         if (prepared.cas_number === undefined) prepared.cas_number = null;
         if (prepared.sequence === undefined) prepared.sequence = null;
         if (prepared.inclusions === undefined) prepared.inclusions = null;
+        if (prepared.gallery_images === undefined) prepared.gallery_images = null;
         return prepared;
       };
 
@@ -207,6 +241,7 @@ const AdminDashboard: React.FC = () => {
           'available',
           'featured',
           'image_url',
+          'gallery_images',
           'safety_sheet_url',
         ];
 
@@ -333,7 +368,6 @@ const AdminDashboard: React.FC = () => {
   };
 
   // Dashboard Stats
-  const totalProducts = products.length;
   const featuredProducts = products.filter(p => p.featured).length;
   const availableProducts = products.filter(p => p.available).length;
 
@@ -427,32 +461,33 @@ const AdminDashboard: React.FC = () => {
         {variationManagerModal}
         <div className="min-h-screen bg-theme-bg">
           <div className="bg-white shadow-sm border-b border-gray-200">
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between h-16">
-                <div className="flex items-center space-x-4">
+            <div className="max-w-4xl mx-auto px-2 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between h-14 sm:h-16">
+                <div className="flex items-center gap-2 sm:gap-4">
                   <button
                     onClick={handleCancel}
-                    className="text-gray-600 hover:text-theme-accent transition-colors flex items-center gap-2 group"
+                    className="text-gray-600 hover:text-theme-accent transition-colors flex items-center gap-1 sm:gap-2 group"
                   >
-                    <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-                    <span className="text-sm font-medium">Back</span>
+                    <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 group-hover:-translate-x-1 transition-transform" />
+                    <span className="text-sm font-medium hidden sm:inline">Back</span>
                   </button>
-                  <div className="h-6 w-px bg-gray-200"></div>
-                  <h1 className="text-lg font-bold text-theme-text">
-                    {currentView === 'add' ? 'Add New Product' : 'Edit Product'}
+                  <div className="h-4 w-px bg-gray-200 hidden sm:block"></div>
+                  <h1 className="text-sm sm:text-lg font-bold text-theme-text truncate max-w-[120px] sm:max-w-none">
+                    {currentView === 'add' ? 'New Product' : 'Edit Product'}
                   </h1>
                 </div>
-                <div className="flex space-x-3">
-                  <button onClick={handleCancel} className="px-4 py-2 border border-gray-300 hover:border-gray-400 rounded-lg hover:bg-gray-50 transition-all text-sm font-medium text-gray-700">
+                <div className="flex gap-2 sm:gap-3">
+                  <button onClick={handleCancel} className="px-2 py-1.5 sm:px-4 sm:py-2 border border-gray-300 hover:border-gray-400 rounded-lg hover:bg-gray-50 transition-all text-xs sm:text-sm font-medium text-gray-700">
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveProduct}
                     disabled={isProcessing}
-                    className="bg-theme-accent hover:bg-theme-accent/90 text-white px-6 py-2 rounded-lg font-medium transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                    className="bg-theme-accent hover:bg-theme-accent/90 text-white px-3 py-1.5 sm:px-6 sm:py-2 rounded-lg font-medium transition-all flex items-center gap-1.5 sm:gap-2 shadow-sm disabled:opacity-50 text-xs sm:text-sm"
                   >
-                    <Save className="h-4 w-4" />
-                    {isProcessing ? 'Saving...' : 'Save Product'}
+                    <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    {isProcessing ? 'Saving...' : <span className="hidden sm:inline">Save Product</span>}
+                    {!isProcessing && <span className="sm:hidden">Save</span>}
                   </button>
                 </div>
               </div>
@@ -752,9 +787,29 @@ const AdminDashboard: React.FC = () => {
                 />
               </div>
 
+              {/* Product Gallery */}
+              <div>
+                <h3 className="text-sm md:text-base font-bold text-gray-900 mb-2 md:mb-3 flex items-center gap-1.5">
+                  <span className="text-base md:text-lg">📸</span>
+                  Product Gallery
+                </h3>
+                <p className="text-xs text-gray-500 mb-2">
+                  Add multiple images for the product gallery.
+                </p>
+                <MultiImageUpload
+                  images={formData.gallery_images || []}
+                  onImagesChange={(newImages) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      gallery_images: newImages,
+                    }));
+                  }}
+                />
+              </div>
+
             </div>
           </div>
-        </div>
+        </div >
       </>
     );
   }
@@ -1181,16 +1236,19 @@ const AdminDashboard: React.FC = () => {
 
           {/* Stats Overview */}
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-            <div className="bg-white rounded-xl shadow-soft p-4 md:p-6 border border-gray-100">
+            <button
+              onClick={() => setCurrentView('orders')}
+              className="bg-white rounded-xl shadow-soft p-4 md:p-6 border border-gray-100 text-left transition-all hover:shadow-lg hover:border-theme-accent/30 group"
+            >
               <div className="flex items-center justify-between mb-2 md:mb-4">
-                <div className="p-2 md:p-3 bg-theme-accent/10 rounded-lg">
-                  <Package className="w-4 h-4 md:w-6 md:h-6 text-theme-accent" />
+                <div className="p-2 md:p-3 bg-theme-accent/10 rounded-lg group-hover:bg-theme-accent group-hover:text-white transition-colors">
+                  <Package className="w-4 h-4 md:w-6 md:h-6 text-theme-accent group-hover:text-white" />
                 </div>
-                <span className="text-[10px] md:text-xs font-medium text-gray-400">Total</span>
+                <span className="text-[10px] md:text-xs font-medium text-gray-400 group-hover:text-theme-accent">View All</span>
               </div>
-              <h3 className="text-lg md:text-2xl font-bold text-theme-text">{totalProducts}</h3>
-              <p className="text-xs md:text-sm text-gray-500 mt-0.5 md:mt-1 truncate">Active Items</p>
-            </div>
+              <h3 className="text-lg md:text-2xl font-bold text-theme-text group-hover:text-theme-accent transition-colors">{totalOrders}</h3>
+              <p className="text-xs md:text-sm text-gray-500 mt-0.5 md:mt-1 truncate">Total Orders</p>
+            </button>
 
             <div className="bg-white rounded-xl shadow-soft p-4 md:p-6 border border-gray-100">
               <div className="flex items-center justify-between mb-2 md:mb-4">

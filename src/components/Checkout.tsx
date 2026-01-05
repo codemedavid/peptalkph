@@ -328,7 +328,7 @@ ${paymentProof}
 📱 CONTACT METHOD
 WhatsApp: https://api.whatsapp.com/send?phone=639241036416
 
-📋 ORDER ID: ${orderData.id}
+📋 ORDER ID: ${orderData.order_number || orderData.id}
 
 Please confirm this order. Thank you!
       `.trim();

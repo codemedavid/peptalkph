@@ -73,6 +73,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const [selectedVariation, setSelectedVariation] = useState<ProductVariation | undefined>(
     getFirstAvailableVariation()
   );
+  const [activeImage, setActiveImage] = useState<string | null>(product.image_url);
+
+  // Update active image when product changes or gallery is selected
+  React.useEffect(() => {
+    setActiveImage(product.image_url);
+  }, [product.image_url]);
+
   const [quantity, setQuantity] = useState(1);
 
   const hasDiscount = product.discount_active && product.discount_price;
@@ -132,15 +139,62 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
             {/* Left Column */}
             <div className="space-y-3 sm:space-y-4 md:space-y-6">
               {/* Product Image */}
-              {product.image_url && (
-                <div className="relative h-40 sm:h-48 md:h-56 lg:h-64 bg-gray-50 rounded-lg sm:rounded-xl overflow-hidden shadow-sm border border-gray-100">
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
+              {/* Product Image & Gallery */}
+              <div>
+                <div className="relative h-40 sm:h-48 md:h-56 lg:h-64 bg-gray-50 rounded-lg sm:rounded-xl overflow-hidden shadow-sm border border-gray-100 mb-3">
+                  {activeImage ? (
+                    <img
+                      src={activeImage}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-300">
+                      <Package className="w-12 h-12" />
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {/* Gallery Thumbnails */}
+                {product.gallery_images && product.gallery_images.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {/* Main Image Thumbnail */}
+                    {product.image_url && (
+                      <button
+                        onClick={() => setActiveImage(product.image_url)}
+                        className={`flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 transition-all ${activeImage === product.image_url
+                            ? 'border-theme-accent ring-1 ring-theme-accent'
+                            : 'border-transparent hover:border-gray-200'
+                          }`}
+                      >
+                        <img
+                          src={product.image_url}
+                          alt="Main"
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    )}
+
+                    {/* Gallery Thumbnails */}
+                    {product.gallery_images.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setActiveImage(img)}
+                        className={`flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 transition-all ${activeImage === img
+                            ? 'border-theme-accent ring-1 ring-theme-accent'
+                            : 'border-transparent hover:border-gray-200'
+                          }`}
+                      >
+                        <img
+                          src={img}
+                          alt={`Gallery ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Description */}
               <div>

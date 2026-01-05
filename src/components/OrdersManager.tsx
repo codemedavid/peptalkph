@@ -40,6 +40,10 @@ interface Order {
   updated_at: string;
   promo_code_id?: string;
   discount_amount?: number;
+  order_number?: string;
+  tracking_number?: string | null;
+  shipping_note?: string | null;
+  promo_code?: string;
 }
 
 interface OrdersManagerProps {
@@ -65,11 +69,15 @@ const OrdersManager: React.FC<OrdersManagerProps> = ({ onBack }) => {
       setLoading(true);
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('*, promo_codes(code)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      const ordersWithPromo = (data || []).map(order => ({
+        ...order,
+        promo_code: (order.promo_codes as any)?.code
+      }));
+      setOrders(ordersWithPromo);
     } catch (error) {
       console.error('Error loading orders:', error);
       alert('Failed to load orders. Please try again.');
@@ -466,7 +474,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onView, getStatusColor, ge
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 md:gap-3 mb-2 flex-wrap">
             <h3 className="font-bold text-gray-900 text-sm md:text-base lg:text-lg truncate">
-              Order #{order.id.slice(0, 8).toUpperCase()}
+              Order #{order.order_number || order.id.slice(0, 8).toUpperCase()}
             </h3>
             <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-semibold border flex items-center gap-1 ${getStatusColor(order.order_status)}`}>
               {getStatusIcon(order.order_status)}
@@ -539,12 +547,16 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedItems, setEditedItems] = useState<OrderItem[]>([]);
+  const [editedTracking, setEditedTracking] = useState('');
+  const [editedShippingNote, setEditedShippingNote] = useState('');
 
   useEffect(() => {
     if (isEditing) {
       setEditedItems(JSON.parse(JSON.stringify(order.order_items)));
+      setEditedTracking(order.tracking_number || '');
+      setEditedShippingNote(order.shipping_note || '');
     }
-  }, [isEditing, order.order_items]);
+  }, [isEditing, order.order_items, order.tracking_number, order.shipping_note]);
 
   const handleQuantityChange = (index: number, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -587,9 +599,8 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
       const { error } = await supabase
         .from('orders')
         .update({
-          order_items: editedItems,
-          total_price: newItemsTotal,
-          discount_amount: safeDiscount,
+          tracking_number: editedTracking,
+          shipping_note: editedShippingNote,
           updated_at: new Date().toISOString()
         })
         .eq('id', order.id);
@@ -632,7 +643,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                 <span className="text-xs md:text-sm">Back to Orders</span>
               </button>
               <h1 className="text-sm md:text-base lg:text-xl font-bold bg-gradient-to-r from-black to-gray-900 bg-clip-text text-transparent truncate">
-                {isEditing ? 'Editing Order #' : 'Order #'}{order.id.slice(0, 8).toUpperCase()}
+                {isEditing ? 'Editing Order #' : 'Order #'}{order.order_number || order.id.slice(0, 8).toUpperCase()}
               </h1>
             </div>
 
@@ -691,6 +702,56 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
               </button>
             )}
           </div>
+
+          {/* Tracking Info - Only visible if processing/shipped/delivered or editing */}
+          {(['processing', 'shipped', 'delivered'].includes(order.order_status) || isEditing) && (
+            <div className="bg-blue-50 rounded-lg md:rounded-xl p-4 md:p-6 border border-blue-100">
+              <h3 className="font-bold text-blue-900 mb-3 text-sm md:text-base flex items-center gap-2">
+                <Truck className="w-4 h-4 md:w-5 md:h-5" />
+                Shipping & Tracking
+              </h3>
+
+              {isEditing ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-blue-800 mb-1">Tracking Number</label>
+                    <input
+                      type="text"
+                      value={editedTracking}
+                      onChange={(e) => setEditedTracking(e.target.value)}
+                      placeholder="Enter tracking number"
+                      className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-blue-800 mb-1">Shipping Note / Remarks</label>
+                    <textarea
+                      value={editedShippingNote}
+                      onChange={(e) => setEditedShippingNote(e.target.value)}
+                      placeholder="Add shipping updates or notes (visible to customer)"
+                      rows={2}
+                      className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-blue-700 text-xs font-medium uppercase tracking-wider">Tracking Number</span>
+                    <p className="font-mono font-bold text-blue-900 text-lg">
+                      {order.tracking_number || <span className="text-blue-400 italic font-normal">Not added yet</span>}
+                    </p>
+                  </div>
+                  {order.shipping_note && (
+                    <div className="pt-2 border-t border-blue-100 mt-2">
+                      <span className="text-blue-700 text-xs font-medium uppercase tracking-wider">Note</span>
+                      <p className="text-blue-900">{order.shipping_note}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Customer Info */}
           <div>

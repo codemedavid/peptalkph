@@ -58,13 +58,13 @@ const PeptideInventoryManager: React.FC<PeptideInventoryManagerProps> = ({ onBac
       return sum + orderTotal;
     }, 0);
 
-    // Calculate total vials sold from confirmed orders
-    const totalVialsSold = orders.reduce((sum, order) => {
+    // Calculate total items sold from confirmed orders
+    const totalItemsSold = orders.reduce((sum, order) => {
       if (order.order_items && Array.isArray(order.order_items)) {
-        const vialsInOrder = order.order_items.reduce((itemSum: number, item: any) => {
+        const itemsInOrder = order.order_items.reduce((itemSum: number, item: any) => {
           return itemSum + (item.quantity || 0);
         }, 0);
-        return sum + vialsInOrder;
+        return sum + itemsInOrder;
       }
       return sum;
     }, 0);
@@ -89,15 +89,15 @@ const PeptideInventoryManager: React.FC<PeptideInventoryManagerProps> = ({ onBac
 
     const lowStockItems = products.filter(product => {
       if (product.variations && product.variations.length > 0) {
-        // Check if any variation is low stock (less than 5)
-        return product.variations.some(v => v.stock_quantity > 0 && v.stock_quantity < 5);
+        // Check if any variation is low stock (5 or less)
+        return product.variations.some(v => v.stock_quantity > 0 && v.stock_quantity <= 5);
       }
-      return product.stock_quantity > 0 && product.stock_quantity < 5;
+      return product.stock_quantity > 0 && product.stock_quantity <= 5;
     }).length;
 
     return {
       totalSales,
-      totalVialsSold,
+      totalItemsSold,
       totalInventoryValue,
       totalItems,
       lowStockItems
@@ -126,9 +126,9 @@ const PeptideInventoryManager: React.FC<PeptideInventoryManagerProps> = ({ onBac
     if (selectedFilter === 'low-stock') {
       filtered = filtered.filter(product => {
         if (product.variations && product.variations.length > 0) {
-          return product.variations.some(v => v.stock_quantity > 0 && v.stock_quantity < 5);
+          return product.variations.some(v => v.stock_quantity > 0 && v.stock_quantity <= 5);
         }
-        return product.stock_quantity > 0 && product.stock_quantity < 5;
+        return product.stock_quantity > 0 && product.stock_quantity <= 5;
       });
     } else if (selectedFilter === 'out-of-stock') {
       filtered = filtered.filter(product => {
@@ -270,7 +270,7 @@ const PeptideInventoryManager: React.FC<PeptideInventoryManagerProps> = ({ onBac
               <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-theme-secondary" />
             </div>
             <p className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">₱{stats.totalSales.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            <p className="text-xs text-gray-500 mt-1">Vials Sold: {stats.totalVialsSold}</p>
+            <p className="text-xs text-gray-500 mt-1">Items Sold: {stats.totalItemsSold}</p>
           </div>
 
           {/* Inventory Value */}
@@ -411,12 +411,12 @@ const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ product, categori
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-xs md:text-sm">
                     <div>
-                      <span className="text-gray-500 text-[10px] md:text-xs">Price per Vial</span>
+                      <span className="text-gray-500 text-[10px] md:text-xs">Unit Price</span>
                       <p className="font-semibold text-gray-900">₱{variation.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
                     </div>
                     <div>
                       <span className="text-gray-500 text-[10px] md:text-xs">Quantity</span>
-                      <p className="font-semibold text-gray-900">{variation.stock_quantity} vials</p>
+                      <p className="font-semibold text-gray-900">{variation.stock_quantity}</p>
                     </div>
                     <div>
                       <span className="text-gray-500 text-[10px] md:text-xs">Total Value</span>
@@ -520,12 +520,12 @@ const InventoryItemCard: React.FC<InventoryItemCardProps> = ({ product, categori
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-xs md:text-sm">
             <div>
-              <span className="text-gray-500 text-[10px] md:text-xs">Price per Vial</span>
+              <span className="text-gray-500 text-[10px] md:text-xs">Unit Price</span>
               <p className="font-semibold text-gray-900">₱{price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
             </div>
             <div>
               <span className="text-gray-500 text-[10px] md:text-xs">Quantity</span>
-              <p className="font-semibold text-gray-900">{product.stock_quantity} vials</p>
+              <p className="font-semibold text-gray-900">{product.stock_quantity}</p>
             </div>
             <div>
               <span className="text-gray-500 text-[10px] md:text-xs">Total Value</span>
