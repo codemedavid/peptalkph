@@ -241,8 +241,10 @@ export function useMenu() {
         let errorMessage = error.message || 'Unknown error';
         if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
           errorMessage = 'Permission denied. Check Row Level Security (RLS) policies for the products table.';
-        } else if (error.message?.includes('column') || error.message?.includes('does not exist')) {
-          errorMessage = 'Database column error. Make sure image_url column exists in products table.';
+        } else if (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist')) {
+          // Keep the original message as it likely contains the specific column name
+          // e.g., "column 'gallery_images' does not exist"
+          errorMessage = `Database error: ${error.message}`;
         }
 
         throw new Error(errorMessage);
