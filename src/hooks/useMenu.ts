@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Product, ProductVariation } from '../types';
 
-export function useMenu() {
+export interface UseMenuOptions {
+  includeUnavailable?: boolean;
+}
+
+export function useMenu(options: UseMenuOptions = {}) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,11 +112,16 @@ export function useMenu() {
       console.log('🔄 Fetching products from database...');
 
       // Force fresh data by clearing any potential cache
-      const { data, error } = await supabase
+      let query = supabase
         .from('products')
-        .select('*')
-        .eq('available', true)
-        .order('name', { ascending: true });
+        .select('*');
+
+      // Only filter by available=true if includeUnavailable is NOT true
+      if (!options.includeUnavailable) {
+        query = query.eq('available', true);
+      }
+
+      const { data, error } = await query.order('name', { ascending: true });
 
       if (error) throw error;
 

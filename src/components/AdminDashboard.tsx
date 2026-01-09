@@ -24,7 +24,7 @@ const AdminDashboard: React.FC = () => {
   });
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const { products, loading, addProduct, updateProduct, deleteProduct, refreshProducts } = useMenu();
+  const { products, loading, addProduct, updateProduct, deleteProduct, refreshProducts } = useMenu({ includeUnavailable: true });
   const { categories } = useCategories();
   const [currentView, setCurrentView] = useState<'dashboard' | 'products' | 'add' | 'edit' | 'categories' | 'payments' | 'coa' | 'inventory' | 'orders' | 'faq' | 'shipping' | 'settings' | 'promo'>('dashboard');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
