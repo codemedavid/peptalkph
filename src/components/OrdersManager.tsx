@@ -93,86 +93,17 @@ const OrdersManager: React.FC<OrdersManagerProps> = ({ onBack }) => {
   };
 
   const handleConfirmOrder = async (order: Order) => {
-    if (!confirm(`Confirm order #${order.id.slice(0, 8)}? This will deduct stock from inventory.`)) {
+    if (!confirm(`Confirm order #${order.id.slice(0, 8)}? Payment will be marked as paid.`)) {
       return;
     }
 
     try {
       setIsProcessing(true);
 
-      // First, check if all items are still in stock
-      for (const item of order.order_items) {
-        if (item.variation_id) {
-          // Check variation stock
-          const { data: variation, error: varError } = await supabase
-            .from('product_variations')
-            .select('stock_quantity')
-            .eq('id', item.variation_id)
-            .single();
-
-          if (varError) throw varError;
-          if (!variation || variation.stock_quantity < item.quantity) {
-            alert(`Insufficient stock for ${item.product_name} ${item.variation_name || ''}. Available: ${variation?.stock_quantity || 0}, Required: ${item.quantity}`);
-            return;
-          }
-        } else {
-          // Check product stock
-          const { data: product, error: prodError } = await supabase
-            .from('products')
-            .select('stock_quantity')
-            .eq('id', item.product_id)
-            .single();
-
-          if (prodError) throw prodError;
-          if (!product || product.stock_quantity < item.quantity) {
-            alert(`Insufficient stock for ${item.product_name}. Available: ${product?.stock_quantity || 0}, Required: ${item.quantity}`);
-            return;
-          }
-        }
-      }
-
-      // Deduct stock for each item
-      for (const item of order.order_items) {
-        if (item.variation_id) {
-          // Deduct from variation - get current stock and update
-          const { data: variation, error: varError } = await supabase
-            .from('product_variations')
-            .select('stock_quantity')
-            .eq('id', item.variation_id)
-            .single();
-
-          if (varError) throw varError;
-
-          if (variation) {
-            const newStock = Math.max(0, variation.stock_quantity - item.quantity);
-            const { error: updateError } = await supabase
-              .from('product_variations')
-              .update({ stock_quantity: newStock })
-              .eq('id', item.variation_id);
-
-            if (updateError) throw updateError;
-          }
-        } else {
-          // Deduct from product - get current stock and update
-          const { data: product, error: prodError } = await supabase
-            .from('products')
-            .select('stock_quantity')
-            .eq('id', item.product_id)
-            .single();
-
-          if (prodError) throw prodError;
-
-          if (product) {
-            const newStock = Math.max(0, product.stock_quantity - item.quantity);
-            const { error: updateError } = await supabase
-              .from('products')
-              .update({ stock_quantity: newStock })
-              .eq('id', item.product_id);
-
-            if (updateError) throw updateError;
-          }
-        }
-      }
+      // Note: Stock is now deducted at Checkout time (reservation).
+      // We don't need to deduct again here.
+      // But we could optionally verify stock again if we wanted to be double sure,
+      // though typically 'confirmed' just means payment verified now.
 
       // Update order status
       const { error: updateError } = await supabase
@@ -209,7 +140,7 @@ const OrdersManager: React.FC<OrdersManagerProps> = ({ onBack }) => {
       // Trigger custom event to refresh inventory sales data
       window.dispatchEvent(new CustomEvent('orderConfirmed'));
 
-      alert(`Order confirmed! Stock has been deducted from inventory.`);
+      alert(`Order confirmed! Payment verified.`);
       setSelectedOrder(null);
     } catch (error) {
       console.error('Error confirming order:', error);
@@ -222,6 +153,45 @@ const OrdersManager: React.FC<OrdersManagerProps> = ({ onBack }) => {
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       setIsProcessing(true);
+
+      // If cancelling/rejecting, restore stock
+      if (newStatus === 'cancelled' || newStatus === 'rejected') {
+        const orderToCancel = orders.find(o => o.id === orderId);
+        if (orderToCancel) {
+          for (const item of orderToCancel.order_items) {
+            if (item.variation_id) {
+              // Restore variation stock
+              const { data: variation } = await supabase
+                .from('product_variations')
+                .select('stock_quantity')
+                .eq('id', item.variation_id)
+                .single();
+
+              if (variation) {
+                await supabase
+                  .from('product_variations')
+                  .update({ stock_quantity: variation.stock_quantity + item.quantity })
+                  .eq('id', item.variation_id);
+              }
+            } else {
+              // Restore product stock
+              const { data: product } = await supabase
+                .from('products')
+                .select('stock_quantity')
+                .eq('id', item.product_id)
+                .single();
+
+              if (product) {
+                await supabase
+                  .from('products')
+                  .update({ stock_quantity: product.stock_quantity + item.quantity })
+                  .eq('id', item.product_id);
+              }
+            }
+          }
+        }
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({
@@ -232,6 +202,7 @@ const OrdersManager: React.FC<OrdersManagerProps> = ({ onBack }) => {
 
       if (error) throw error;
       await loadOrders();
+      await refreshProducts(); // Refresh inventory to show restored stock
       if (selectedOrder?.id === orderId) {
         setSelectedOrder({ ...selectedOrder, order_status: newStatus });
       }

@@ -209,6 +209,45 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
         return;
       }
 
+      // 2. Deduct Stock (Reservation)
+      // We deduct stock immediately to prevent other users from purchasing the same items
+      // If the order is later cancelled/rejected, we must restore this stock
+      const stockDeductionPromises = cartItems.map(async (item) => {
+        if (item.variation) {
+          // Get current stock again to be safe
+          const { data: currentVar } = await supabase
+            .from('product_variations')
+            .select('stock_quantity')
+            .eq('id', item.variation.id)
+            .single();
+
+          if (currentVar) {
+            const newStock = Math.max(0, currentVar.stock_quantity - item.quantity);
+            await supabase
+              .from('product_variations')
+              .update({ stock_quantity: newStock })
+              .eq('id', item.variation.id);
+          }
+        } else {
+          // Get current stock again
+          const { data: currentProd } = await supabase
+            .from('products')
+            .select('stock_quantity')
+            .eq('id', item.product.id)
+            .single();
+
+          if (currentProd) {
+            const newStock = Math.max(0, currentProd.stock_quantity - item.quantity);
+            await supabase
+              .from('products')
+              .update({ stock_quantity: newStock })
+              .eq('id', item.product.id);
+          }
+        }
+      });
+
+      await Promise.all(stockDeductionPromises);
+
       // Prepare order items for database
       const orderItems = cartItems.map(item => ({
         product_id: item.product.id,
