@@ -21,31 +21,57 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ onBack }) => {
   });
 
   // Fetch product counts for each category
-  useEffect(() => {
-    const fetchProductCounts = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('category');
+  const fetchProductCounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('category');
 
-        if (error) throw error;
+      if (error) throw error;
 
-        const counts: Record<string, number> = {};
-        if (data) {
-          data.forEach((product) => {
-            counts[product.category] = (counts[product.category] || 0) + 1;
-          });
-        }
-        setCategoryProductCounts(counts);
-      } catch (error) {
-        console.error('Error fetching product counts:', error);
+      const counts: Record<string, number> = {};
+      if (data) {
+        data.forEach((product) => {
+          counts[product.category] = (counts[product.category] || 0) + 1;
+        });
       }
-    };
+      setCategoryProductCounts(counts);
+    } catch (error) {
+      console.error('Error fetching product counts:', error);
+    }
+  };
 
+  // Re-fetch product counts when categories change
+  useEffect(() => {
     if (categories.length > 0) {
       fetchProductCounts();
     }
   }, [categories]);
+
+  // Subscribe to product changes so counts update in real-time
+  useEffect(() => {
+    const channel = supabase
+      .channel('category-manager-products')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        () => {
+          fetchProductCounts();
+        }
+      )
+      .subscribe();
+
+    // Also refresh on window focus (e.g. switching back from product edit)
+    const handleFocus = () => {
+      fetchProductCounts();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   const handleAddCategory = () => {
     const nextSortOrder = Math.max(...categories.map(c => c.sort_order), 0) + 1;

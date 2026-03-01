@@ -97,7 +97,7 @@ const AdminDashboard: React.FC = () => {
     setCurrentView('add');
     setSelectedProducts(new Set());
     setManagingVariationsProductId(null);
-    const defaultCategory = categories.length > 0 ? categories[0].id : 'research';
+    const defaultCategory = categories.find(c => c.id !== 'all')?.id || 'research';
     setFormData({
       name: '',
       description: '',
@@ -530,12 +530,24 @@ const AdminDashboard: React.FC = () => {
                     <select
                       value={formData.category || ''}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="input-field text-sm"
+                      className={`input-field text-sm ${formData.category && !categories.some(c => c.id === formData.category) ? 'border-red-400 bg-red-50' : ''}`}
                     >
-                      {categories.map(cat => (
+                      {/* Show warning if current category doesn't exist */}
+                      {formData.category && !categories.some(c => c.id === formData.category) && (
+                        <option value={formData.category} disabled>
+                          ⚠️ Unknown category: "{formData.category}" — please select a valid one
+                        </option>
+                      )}
+                      {categories.filter(cat => cat.id !== 'all').map(cat => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                     </select>
+                    {formData.category && !categories.some(c => c.id === formData.category) && (
+                      <p className="text-xs text-red-600 mt-1 flex items-start gap-1 bg-red-50 p-2 rounded border border-red-200">
+                        <span>⚠️</span>
+                        <span>This product is assigned to category <strong>"{formData.category}"</strong> which no longer exists. Please select a valid category and save.</span>
+                      </p>
+                    )}
                   </div>
 
                   <div>
